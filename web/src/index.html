@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content">
+<meta name="theme-color" content="#f0f0f0">
+<title>Npp Fold</title>
+<style>
+:root {
+  --bg: #f0f0f0; --fg: #1b1b1b; --muted: #666; --border: #c8c8c8;
+  --tab: #e3e3e3; --tab-active: #ffffff; --tab-accent: #f7a000; --hover: #dcdcdc;
+  --menu: #ffffff; --accent: #2a6fd6; --dirty: #d32f2f; --status: #e8e8e8; --keys: #e6e6e6; --key: #ffffff;
+}
+body.dark {
+  --bg: #21252b; --fg: #d7dae0; --muted: #8b929e; --border: #181a1f;
+  --tab: #2c313a; --tab-active: #282c34; --tab-accent: #f7a000; --hover: #343a45;
+  --menu: #2c313a; --accent: #61afef; --dirty: #ff6b6b; --status: #1d2026; --keys: #1d2026; --key: #2f3440;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+  font: 14px/1.3 system-ui, "Segoe UI", Roboto, sans-serif; overflow: hidden; overscroll-behavior: none; }
+#app { display: flex; flex-direction: column; height: 100%; }
+
+/* Werkzeugleiste */
+#toolbar { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-bottom: 1px solid var(--border); background: var(--bg); }
+#toolbar .tools { display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+#toolbar .tools::-webkit-scrollbar { display: none; }
+.tb, #menubtn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 42px; min-width: 42px; padding: 0 9px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--fg); font: inherit; }
+.tb svg, #menubtn svg { width: 22px; height: 22px; flex: none; }
+.tb:active, #menubtn:active, .tb.on { background: var(--hover); }
+.tb.on { color: var(--accent); }
+.tb .lbl { display: none; font-size: 13px; }
+.sep { flex: none; width: 1px; height: 26px; background: var(--border); margin: 0 4px; }
+.wide-only { display: none; }
+body.wide .wide-only { display: inline-flex; }
+@media (min-width: 1100px) { .tb .lbl { display: inline; } }
+#lang { flex: none; height: 38px; max-width: 160px; border: 1px solid var(--border); border-radius: 8px; background: var(--tab-active); color: var(--fg); font: inherit; padding: 0 6px; }
+
+/* Bereiche (Split-View) */
+#main { flex: 1; display: flex; min-height: 0; }
+.pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#pane1 { display: none; border-left: 4px solid var(--border); }
+body.split #pane1 { display: flex; }
+body.split .pane.focused .tab.active { box-shadow: inset 0 3px 0 var(--tab-accent); }
+body.split .pane:not(.focused) .tab.active { box-shadow: inset 0 3px 0 var(--muted); }
+.host { flex: 1; min-height: 0; position: relative; }
+.host .cm-editor { position: absolute; inset: 0; }
+.host .cm-editor.cm-focused { outline: none; }
+
+/* Tabs */
+.tabbar { display: flex; overflow-x: auto; scrollbar-width: none; background: var(--bg); border-bottom: 1px solid var(--border); flex: none; }
+.tabbar::-webkit-scrollbar { display: none; }
+.tab { flex: none; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 2px 0 10px; max-width: 240px;
+  background: var(--tab); border-right: 1px solid var(--border); color: var(--muted); user-select: none; cursor: default; }
+.tab.active { background: var(--tab-active); color: var(--fg); box-shadow: inset 0 3px 0 var(--tab-accent); }
+.tab .ico { width: 10px; height: 10px; border-radius: 2px; background: #3d8bfd; flex: none; }
+.tab.dirty .ico { background: var(--dirty); }
+.tab .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .x { border: 0; background: transparent; color: inherit; font-size: 20px; width: 34px; height: 36px; border-radius: 6px; flex: none; }
+.tab .x:active { background: var(--hover); }
+
+/* Sondertasten */
+#keys { display: flex; gap: 4px; padding: 4px; overflow-x: auto; scrollbar-width: none; background: var(--keys); border-top: 1px solid var(--border); flex: none; }
+#keys::-webkit-scrollbar { display: none; }
+#keys button { flex: none; min-width: 40px; height: 38px; padding: 0 8px; border: 0; border-radius: 6px; background: var(--key); color: var(--fg);
+  font: 16px/1 "JetBrains Mono", "Droid Sans Mono", monospace; box-shadow: 0 1px 0 var(--border); }
+#keys button:active { background: var(--hover); }
+body.nokeys #keys { display: none; }
+body.wide #keys > :first-child { margin-left: auto; } body.wide #keys > :last-child { margin-right: auto; }
+
+/* Statusleiste */
+#status { display: flex; gap: 0; background: var(--status); border-top: 1px solid var(--border); font-size: 12.5px; color: var(--fg); flex: none; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+#status::-webkit-scrollbar { display: none; }
+#status span { padding: 5px 10px; border-right: 1px solid var(--border); }
+#status .s-lang { flex: 1; min-width: 7em; }
+#status [data-act] { color: var(--accent); }
+
+/* Menü / Dialog / Toast */
+#menuback { position: fixed; inset: 0; z-index: 20; }
+#menu { position: fixed; top: 52px; right: 8px; z-index: 21; min-width: 280px; max-width: calc(100vw - 16px); max-height: calc(100% - 64px); overflow-y: auto;
+  background: var(--menu); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.25); padding: 4px 0; }
+#menu .mh { padding: 10px 16px 4px; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+#menu button { display: flex; justify-content: space-between; gap: 24px; width: 100%; min-height: 42px; padding: 0 16px; border: 0; background: none; color: var(--fg); font: inherit; font-size: 15px; text-align: left; align-items: center; }
+#menu button:active { background: var(--hover); }
+#menu kbd { font: 12px system-ui; color: var(--muted); }
+body.wide #menu.big { display: grid; grid-template-columns: 1fr 1fr; align-items: start; width: min(680px, calc(100vw - 16px)); }
+#modal { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#modal .box { background: var(--menu); color: var(--fg); border-radius: 14px; padding: 20px; max-width: 440px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+#modal p { margin: 0 0 18px; white-space: pre-line; font-size: 15.5px; line-height: 1.45; }
+#modal .btns { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+#modal button { min-height: 42px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--hover); color: var(--fg); font: inherit; font-size: 15px; }
+#modal button:first-child { background: var(--accent); color: #fff; }
+#toast { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%) translateY(20px); opacity: 0; transition: .2s; pointer-events: none; z-index: 40;
+  background: #323232; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px; max-width: 90vw; }
+#upd { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); z-index: 41; width: min(420px, calc(100vw - 32px));
+  background: var(--menu); color: var(--fg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0,0,0,.25); font-size: 14px; }
+#upd i { display: block; height: 6px; margin-top: 8px; border-radius: 3px; background: var(--hover); overflow: hidden; }
+#upd b { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+#upd.indet b { animation: indet 1.2s linear infinite; width: 40% !important; }
+@keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+#toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar"><div class="tools"></div><select id="lang" aria-label="Sprache"></select><button id="menubtn" aria-label="Menü"></button></div>
+  <div id="main">
+    <div class="pane" id="pane0"><div class="tabbar"></div><div class="host"></div></div>
+    <div class="pane" id="pane1"><div class="tabbar"></div><div class="host"></div></div>
+  </div>
+  <div id="keys"></div>
+  <div id="status"></div>
+</div>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
